@@ -23,7 +23,7 @@ const schema = {
 
 // resource - обьект с функциями getList, create, update и delete
 const resource = {
-  getList: () => {
+  getList: async () => {
     // получение списка записей
     return [
       {
@@ -38,13 +38,13 @@ const resource = {
       },
     ]
   },
-  create: () => {
+  create: async () => {
     // создание записи 
   },
-  update: () => {
+  update: async () => {
     // изменение записи
   },
-  delete: () => {
+  delete: async () => {
     // удаление записи
   },
 };
