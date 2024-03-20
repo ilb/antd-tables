@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Col, Row, Table } from "antd";
 import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import Toast from "@ilb/antd-toasts";
@@ -9,28 +9,27 @@ import Access from "../Access.js";
 
 /**
  * @param {object} - Объект с опциями.
- * @param {object} title - Заголовок.
  * @param {object} schema - Схема формы.
- * @param {string} title.text - Текст заголовка.
- * @param {object} table - Таблица.
- * @param {Array} table.rows - Строки таблицы.
- * @param {boolean} [table.withId=true] - Флаг включения идентификатора в таблицу (по умолчанию true).
- * @param {boolean} [table.withActions=true] - Флаг включения действий в таблицу (по умолчанию true).
+ * @param {boolean} config.withId - Флаг включения идентификатора в таблицу
+ * @param {boolean} config.title - Текст заголовка таблицы.
  * @param {*} resource - Ресурс.
  * @param {*} [modalComponent=null] - Компонент модального окна
  */
 const SimpleEditableTable = ({
-  title = { text: "" },
   schema,
-  table = { rows: [], withId: true, withActions: true },
+  config = {},
   resource,
   modalComponent = null,
   access = ["create", "update", "delete"],
 }) => {
   const ModalComponent = modalComponent || DefaultModal;
-  const [tableData, setTableData] = useState(table.rows);
+  const [tableData, setTableData] = useState([]);
   const [isOpen, setOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState({});
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   /**
    * Открытие модального окна для редактирования записи
@@ -75,18 +74,23 @@ const SimpleEditableTable = ({
    * @returns {boolean} - корректно ли отработало сохранение
    */
   const store = (data) => {
-    return resource
-      .store({ id: editingRecord.id, ...data })
-      .then(() => {
-        Toast.success();
-        setOpen(false);
-        refresh();
-        return true;
-      })
-      .catch((err) => {
-        Toast.error(err.message);
-        return false;
-      });
+    const successCallback = () => {
+      Toast.success();
+      setOpen(false);
+      refresh();
+      return true;
+    }
+
+    const errorCallback = (err) => {
+      Toast.error(err.message);
+      return false;
+    }
+
+    if (editingRecord.id) {
+      return resource.update(editingRecord.id, data).then(successCallback).catch(errorCallback)
+    } else {
+      return resource.create(data).then(successCallback).catch(errorCallback)
+    }
   };
 
   /**
@@ -107,7 +111,7 @@ const SimpleEditableTable = ({
 
     let tableSchema = [];
 
-    if (table.withId !== false) {
+    if (config.withId !== false) {
       const idColumn = {
         title: "#",
         dataIndex: "id",
@@ -119,7 +123,7 @@ const SimpleEditableTable = ({
 
     tableSchema = [...tableSchema, ...schema];
 
-    if (table.withActions !== false && haveEditableAccess(access)) {
+    if (haveEditableAccess(access)) {
       const actionsColumn = {
         title: "Действия",
         width: 100,
@@ -164,7 +168,7 @@ const SimpleEditableTable = ({
     <>
       <Row gutter={[24, 16]}>
         <Col span={24}>
-          <SimpleTitle text={title.text} access={access} create={create} />
+          <SimpleTitle text={config.title} access={access} create={create} />
         </Col>
         <Col span={24}>
           <Table columns={preprocessSchema(schema)} dataSource={tableData} />
