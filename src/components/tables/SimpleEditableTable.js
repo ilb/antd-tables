@@ -6,12 +6,14 @@ import schemaAdapter from "../../schemaAdapter.js";
 import DefaultModal from "../modals/DefaultModal.js";
 import SimpleTitle from "../titles/SimpleTitle.js";
 import Access from "../Access.js";
+import IsArchiveToggle from "../other/IsArchiveToggle.mjs";
 
 /**
  * @param {object} - Объект с опциями.
  * @param {object} schema - Схема формы.
  * @param {boolean} config.withId - Флаг включения идентификатора в таблицу
  * @param {boolean} config.title - Текст заголовка таблицы.
+ * @param {boolean} config.archivable - Флаг, указывающий, что записи могут быть архивными.
  * @param {*} resource - Ресурс.
  * @param {*} [modalComponent=null] - Компонент модального окна
  */
@@ -67,29 +69,55 @@ const SimpleEditableTable = ({
     }
   };
 
+  const successCallback = () => {
+    Toast.success();
+    refresh();
+    return true;
+  }
+
+  const errorCallback = (err) => {
+    Toast.error(err.message);
+    return false;
+  }
+
+  const hideModal = () => {
+    setOpen(false);
+  }
+
   /**
    * Создание/Редактирование записи
    *
    * @param data
-   * @returns {boolean} - корректно ли отработало сохранение
    */
   const store = (data) => {
-    const successCallback = () => {
-      Toast.success();
-      setOpen(false);
-      refresh();
-      return true;
-    }
-
-    const errorCallback = (err) => {
-      Toast.error(err.message);
-      return false;
-    }
-
     if (editingRecord.id) {
-      return resource.update(editingRecord.id, data).then(successCallback).catch(errorCallback)
+      return resource.update(editingRecord.id, data).then(successCallback).catch(errorCallback).finally(hideModal)
     } else {
-      return resource.create(data).then(successCallback).catch(errorCallback)
+      return resource.create(data).then(successCallback).catch(errorCallback).finally(hideModal)
+    }
+  };
+
+  /**
+   *
+   * @param {object} record
+   * @param {int} record.id
+   * @returns {Promise<void>}
+   */
+  const archive = async (record) => {
+    if (confirm(`Отправить "${record.title || record.name}" в архив?`)) {
+      return resource.archive(record.id).then(successCallback).catch(errorCallback);
+    }
+  };
+
+  /**
+   *
+   * @param {object} record
+   * @param {int} record.id
+   * @returns {Promise<*>}
+   */
+  const restore = async (record) => {
+    if (confirm(`Восстановить "${record.title || record.name}" из архива?`)) {
+      return resource.restore(record.id).then(successCallback).catch(errorCallback);
     }
   };
 
@@ -127,7 +155,7 @@ const SimpleEditableTable = ({
       const actionsColumn = {
         title: "Действия",
         width: 100,
-        render: (record) => {
+        render: (_, record) => {
           return (
             <Row justify="end" gutter={[8, 8]}>
               <Access availables={access} needed="update">
@@ -139,6 +167,17 @@ const SimpleEditableTable = ({
                     shape="circle"
                     icon={<EditOutlined />}
                   />
+                </Col>
+              </Access>
+              <Access availables={access} needed="delete">
+                <Col>
+                  {config.archivable && (
+                    <IsArchiveToggle
+                      isArchive={record.isArchive}
+                      onRestore={() => restore(record)}
+                      onArchive={() => archive(record)}
+                    />
+                  )}
                 </Col>
               </Access>
               <Access availables={access} needed="delete">
